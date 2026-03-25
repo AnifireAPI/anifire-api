@@ -14,42 +14,49 @@ switch (env.DEPLOYMENT_ENV) {
         getConnInfo = nodejsGetConnInfo;
 }
 
-export const ratelimit = rateLimiter({
-    standardHeaders: "draft-7",
-    limit: env.RATE_LIMIT_MAX_REQUESTS,
-    windowMs: env.RATE_LIMIT_WINDOW_MS,
+let limiter: any;
 
-    keyGenerator(c) {
-        // Prefer Client ID (CID) header for per-device rate limiting
-        const cid = c.req.header("x-client-id");
-        if (cid && cid.length >= 10) {
-            return `cid_${cid}`;
-        }
+export const ratelimit = async (c: any, next: any) => {
+    if (!limiter) {
+        limiter = rateLimiter({
+            standardHeaders: "draft-7",
+            limit: env.RATE_LIMIT_MAX_REQUESTS,
+            windowMs: env.RATE_LIMIT_WINDOW_MS,
 
-        // Fallback to IP-based identification
-        try {
-            const { remote } = getConnInfo(c);
-            const key =
-                `${String(remote.addressType)}_` +
-                `${String(remote.address)}:${String(remote.port)}`;
-            return key;
-        } catch {
-            return (
-                c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
-                c.req.header("x-real-ip") ||
-                "unknown"
-            );
-        }
-    },
+            keyGenerator(c) {
+                // Prefer Client ID (CID) header for per-device rate limiting
+                const cid = c.req.header("x-client-id");
+                if (cid && cid.length >= 10) {
+                    return `cid_${cid}`;
+                }
 
-    handler(c) {
-        return c.json(
-            {
-                status: 429,
-                message: "Too Many Requests. Please slow down! 🐌",
-                retryAfter: Math.ceil(env.RATE_LIMIT_WINDOW_MS / 1000),
+                // Fallback to IP-based identification
+                try {
+                    const { remote } = getConnInfo(c);
+                    const key =
+                        `${String(remote.addressType)}_` +
+                        `${String(remote.address)}:${String(remote.port)}`;
+                    return key;
+                } catch {
+                    return (
+                        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
+                        c.req.header("x-real-ip") ||
+                        "unknown"
+                    );
+                }
             },
-            { status: 429 }
-        );
-    },
-});
+
+            handler(c) {
+                return c.json(
+                    {
+                        status: 429,
+                        message: "Too Many Requests. Please slow down! 🐌",
+                        retryAfter: Math.ceil(env.RATE_LIMIT_WINDOW_MS / 1000),
+                    },
+                    { status: 429 }
+                );
+            },
+        });
+    }
+    return limiter(c, next);
+};
