@@ -4,8 +4,8 @@ import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import { Hono } from "hono";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __filename = typeof import.meta !== 'undefined' && import.meta.url ? fileURLToPath(import.meta.url) : '';
+const __dirname = __filename ? dirname(__filename) : '';
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 
