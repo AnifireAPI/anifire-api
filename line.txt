@@ -1,0 +1,3 @@
+    const content = docsContent[sectionParam] || \`# Error\nDocumentation for **\${sectionParam}** could not be loaded.\`;
+const contentDiv=document.getElementById('content');
+            const content = docsData[section];
